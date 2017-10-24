@@ -413,9 +413,6 @@ int ieee80211_key_link(struct ieee80211_key *key,
 
 	pairwise = key->conf.flags & IEEE80211_KEY_FLAG_PAIRWISE;
 	idx = key->conf.keyidx;
-	key->local = sdata->local;
-	key->sdata = sdata;
-	key->sta = sta;
 
 	if (sta) {
 		/*
@@ -452,6 +449,17 @@ int ieee80211_key_link(struct ieee80211_key *key,
 	else
 		old_key = key_mtx_dereference(sdata->local, sdata->keys[idx]);
 
+        if (old_key && key->conf.keylen == old_key->conf.keylen &&
+            !memcmp(key->conf.key, old_key->conf.key, key->conf.keylen)) {
+                ieee80211_key_free_unused(key);
+                ret = 0;
+                goto out;
+        }
+
+        key->local = sdata->local;
+        key->sdata = sdata;
+        key->sta = sta;
+
 	__ieee80211_key_replace(sdata, sta, pairwise, old_key, key);
 	__ieee80211_key_destroy(old_key);
 
@@ -459,6 +467,7 @@ int ieee80211_key_link(struct ieee80211_key *key,
 
 	ret = ieee80211_key_enable_hw_accel(key);
 
+out:
 	mutex_unlock(&sdata->local->key_mtx);
 
 	return ret;
